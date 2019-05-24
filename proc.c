@@ -18,8 +18,6 @@ int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
-static void wakeup1(void *chan);
-
 void
 pinit(void)
 {
@@ -38,10 +36,10 @@ struct cpu*
 mycpu(void)
 {
   int apicid, i;
-  
+
   if(readeflags()&FL_IF)
     panic("mycpu called with interrupts enabled\n");
-  
+
   apicid = lapicid();
   // APIC IDs are not guaranteed to be contiguous. Maybe we should have
   // a reverse map, or reserve a register to store &cpus[i].
@@ -89,6 +87,20 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
+  #ifdef PRIORITY
+    p->priority = 10;
+  #else
+  #ifdef SML
+    p->priority = 2;
+  #endif
+  #endif
+
+  p->ctime = ticks;
+  p->retime = 0;
+  p->rtime = 0;
+  p->stime = 0;
+  p->etime = 0;
+
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -124,12 +136,13 @@ userinit(void)
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
   p = allocproc();
-  
+
   initproc = p;
   if((p->pgdir = setupkvm()) == 0)
     panic("userinit: out of memory?");
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
   p->sz = PGSIZE;
+  p->ctime = ticks;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
   p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
@@ -138,6 +151,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
+  p->tickets = DEFAULT_TICKETS; // used in LOTTERY
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -200,6 +214,8 @@ fork(void)
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
+  np->tickets = DEFAULT_TICKETS; // used in LOTTERY
+
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
 
@@ -248,7 +264,7 @@ exit(void)
   curproc->cwd = 0;
 
   acquire(&ptable.lock);
-
+  curproc->etime = ticks;
   // Parent might be sleeping in wait().
   wakeup1(curproc->parent);
 
@@ -275,7 +291,7 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -294,6 +310,7 @@ wait(void)
         p->parent = 0;
         p->name[0] = 0;
         p->killed = 0;
+        p->ctime = 0;
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
@@ -311,6 +328,54 @@ wait(void)
   }
 }
 
+int wait2(int *retime, int *rutime, int *stime) {
+  struct proc *p;
+  int havekids, pid;
+  acquire(&ptable.lock);
+  for(;;){
+    // Scan through table looking for zombie children.
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->parent != myproc())
+        continue;
+      havekids = 1;
+      if(p->state == ZOMBIE){
+        // Found one.
+        *retime = p->retime;
+        *rutime = p->rtime;
+        *stime = p->stime;
+
+        pid = p->pid;
+        kfree(p->kstack);
+        p->kstack = 0;
+        freevm(p->pgdir);
+        p->state = UNUSED;
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->ctime = 0;
+        p->retime = 0;
+        p->rtime = 0;
+        p->etime = 0;
+        p->stime = 0;
+        p->priority = 0;
+        release(&ptable.lock);
+        return pid;
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || myproc()->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(myproc(), &ptable.lock);  //DOC: wait-sleep
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -322,10 +387,139 @@ wait(void)
 void
 scheduler(void)
 {
+  struct proc *p = 0;
+
+  struct cpu *c = mycpu();
+  c->proc = 0;
+
+  for(;;)
+  {
+      // Enable interrupts on this processor.
+      sti();
+
+      // Loop over process table looking for process to run.
+      acquire(&ptable.lock);
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+      {
+
+          #ifdef DEFAULT
+              if(p->state != RUNNABLE)
+                continue;
+          #else
+          #ifdef PRIORITY
+
+              struct proc *highP = 0;
+              struct proc *p1 = 0;
+
+              if(p->state != RUNNABLE)
+                continue;
+              // Choose the process with highest priority (among RUNNABLEs)
+              highP = p;
+              for(p1 = ptable.proc; p1 < &ptable.proc[NPROC]; p1++){
+                if((p1->state == RUNNABLE) && (highP->priority > p1->priority))
+                  highP = p1;
+              }
+
+              if(highP != 0)
+                p = highP;
+
+          #else
+          #ifdef FCFS
+
+            struct proc *minP = 0;
+
+            if(p->state != RUNNABLE)
+              continue;
+
+            // ignore init and sh processes from FCFS
+            if(p->pid > 1)
+            {
+              if (minP != 0){
+                // here I find the process with the lowest creation time (the first one that was created)
+                if(p->ctime < minP->ctime)
+                  minP = p;
+              }
+              else
+                  minP = p;
+            }
+
+            // If I found the process which I created first and it is runnable I run it
+            //(in the real FCFS I should not check if it is runnable, but for testing purposes I have to make this control, otherwise every time I launch
+            // a process which does I/0 operation (every simple command) everything will be blocked
+            if(minP != 0 && minP->state == RUNNABLE)
+                p = minP;
+          #else
+          #ifdef LOTTERY
+
+            if(p->state != RUNNABLE)
+              continue;
+
+            int totalT = totalTickets();
+            int draw = -1;
+
+          	if (totalT > 0 || draw <= 0)
+          		draw = random(totalT);
+
+            draw = draw - p->tickets;
+
+            // process with a great number of tickets has more probability to put draw to 0 or negative and execute
+            if(draw >= 0)
+              continue;
+          #else
+          #ifdef SML
+
+            struct proc *foundP = 0;
+
+            uint priority = 1;
+
+            int index1 = 0;
+            int index2 = 0;
+            int index3 = 0;
+
+            foundP = findReadyProcess(&index1, &index2, &index3, &priority);
+            if (foundP != 0)
+              p = foundP;
+            else{
+              if(p->state != RUNNABLE)
+                continue;
+            }
+
+          #endif
+          #endif
+          #endif
+          #endif
+          #endif
+
+          if(p != 0)
+          {
+
+            // Switch to chosen process.  It is the process's job
+            // to release ptable.lock and then reacquire it
+            // before jumping back to us.
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+          }
+        }
+
+        release(&ptable.lock);
+  }
+}
+
+/*void
+scheduler(void)
+{
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -353,7 +547,8 @@ scheduler(void)
     release(&ptable.lock);
 
   }
-}
+}*/
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
@@ -381,16 +576,6 @@ sched(void)
   mycpu()->intena = intena;
 }
 
-// Give up the CPU for one scheduling round.
-void
-yield(void)
-{
-  acquire(&ptable.lock);  //DOC: yieldlock
-  myproc()->state = RUNNABLE;
-  sched();
-  release(&ptable.lock);
-}
-
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void
@@ -412,13 +597,24 @@ forkret(void)
   // Return to "caller", actually trapret (see allocproc).
 }
 
+// Give up the CPU for one scheduling round.
+void
+yield(void)
+{
+  acquire(&ptable.lock);  //DOC: yieldlock
+  myproc()->state = RUNNABLE;
+  sched();
+  release(&ptable.lock);
+}
+
+
 // Atomically release lock and sleep on chan.
 // Reacquires lock when awakened.
 void
 sleep(void *chan, struct spinlock *lk)
 {
   struct proc *p = myproc();
-  
+
   if(p == 0)
     panic("sleep");
 
@@ -532,3 +728,95 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+struct proc *getptable_proc(void) {
+  return ptable.proc;
+}
+
+// Change Process priority
+int
+chpr(int pid, int priority)
+{
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid) {
+        p->priority = priority;
+        break;
+    }
+  }
+  release(&ptable.lock);
+
+  return pid;
+}
+
+
+int getperformancedata(int* wtime, int* rtime) {
+    return 404;
+}
+
+void updateEveryTick() {
+    acquire(&ptable.lock);
+
+    for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p->state == ZOMBIE) {
+            if(p->etime == 0) {
+                p->etime = ticks;
+            }
+            else
+                continue;
+        } else if(p->state == SLEEPING) {
+            p->stime++;
+        } else if(p->state == RUNNABLE) {
+            p->retime++;
+        } else if(p->state == RUNNING) {
+            p->rtime++;
+        }
+    }
+
+    release(&ptable.lock);
+}
+
+
+#ifdef SML
+/*
+  this method will find the next process to run
+*/
+struct proc* findReadyProcess(int *index1, int *index2, int *index3, uint *priority) {
+  int i;
+  struct proc* proc2;
+notfound:
+  for (i = 0; i < NPROC; i++) {
+    switch(*priority) {
+      case 1:
+        proc2 = &ptable.proc[(*index1 + i) % NPROC];
+        if (proc2->state == RUNNABLE && proc2->priority == *priority) {
+          *index1 = (*index1 + 1 + i) % NPROC;
+          return proc2; // found a runnable process with appropriate priority
+        }
+      case 2:
+        proc2 = &ptable.proc[(*index2 + i) % NPROC];
+        if (proc2->state == RUNNABLE && proc2->priority == *priority) {
+          *index2 = (*index2 + 1 + i) % NPROC;
+          return proc2; // found a runnable process with appropriate priority
+        }
+      case 3:
+        proc2 = &ptable.proc[(*index3 + i) % NPROC];
+        if (proc2->state == RUNNABLE && proc2->priority == *priority){
+          *index3 = (*index3 + 1 + i) % NPROC;
+          return proc2; // found a runnable process with appropriate priority
+        }
+    }
+  }
+  if (*priority == 3) {//did not find any process on any of the prorities
+    *priority = 3;
+    return 0;
+  }
+  else {
+    *priority += 1; //will try to find a process at a lower priority (ighter value of priority)
+    goto notfound;
+  }
+  return 0;
+}
+#endif
