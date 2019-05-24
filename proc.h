@@ -1,4 +1,4 @@
-#define DEFAULT_TICKETS 1
+
 
 // Per-CPU state
 struct cpu {
@@ -59,7 +59,6 @@ struct proc {
   int stime;                   //process SLEEPING time
   int retime;                  //process READY(RUNNABLE) time
   int rtime; //process RUNNING time
-  int tickets;                  // Process tickets used in LOTTERY scheduling algorithm
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -72,5 +71,4 @@ static void wakeup1(void *chan);
 
 void updateEveryTick();
 int random(int max);
-int totalTickets();
 struct proc* findReadyProcess(int *index1, int *index2, int *index3, uint *priority);

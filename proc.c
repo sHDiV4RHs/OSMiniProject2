@@ -151,7 +151,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-  p->tickets = DEFAULT_TICKETS; // used in LOTTERY
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -214,7 +213,6 @@ fork(void)
   np->parent = curproc;
   *np->tf = *curproc->tf;
 
-  np->tickets = DEFAULT_TICKETS; // used in LOTTERY
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -449,23 +447,7 @@ scheduler(void)
             if(minP != 0 && minP->state == RUNNABLE)
                 p = minP;
           #else
-          #ifdef LOTTERY
 
-            if(p->state != RUNNABLE)
-              continue;
-
-            int totalT = totalTickets();
-            int draw = -1;
-
-          	if (totalT > 0 || draw <= 0)
-          		draw = random(totalT);
-
-            draw = draw - p->tickets;
-
-            // process with a great number of tickets has more probability to put draw to 0 or negative and execute
-            if(draw >= 0)
-              continue;
-          #else
           #ifdef SML
 
             struct proc *foundP = 0;
@@ -484,7 +466,6 @@ scheduler(void)
                 continue;
             }
 
-          #endif
           #endif
           #endif
           #endif

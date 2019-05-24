@@ -130,8 +130,6 @@ int sys_getptable(void){
     s+=4;
     *(int *)s = p->priority;
     s+=4;
-    *(int *)s = p->tickets;
-    s+=4;
     *(int *)s = p->ctime;
     s+=4;
     memmove(s,p->name,16);
