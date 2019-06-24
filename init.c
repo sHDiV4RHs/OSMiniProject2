@@ -39,6 +39,27 @@ main(void)
   #endif
   #endif
 
+//#ifdef DEFAULT
+//    printf(1, "Scheduler policy: DEFAULT\n");
+//#else
+//#ifdef RR
+//    printf(1, "Scheduler policy: RR\n");
+//#else
+//#ifdef FRR
+//    printf(1, "Scheduler policy: FIFO Round Robin\n");
+//#else
+//#ifdef GRT
+//    printf(1, "Scheduler policy: Guarnteed (Fair-Share) scheduling\n");
+//#else
+//#ifdef THREEQ
+//    printf(1, "Scheduler policy: Multi level queue scheduling\n");
+//#else
+//#endif
+//#endif
+//#endif
+//#endif
+//#endif
+
   for(;;){
     printf(1, "init: starting sh\n");
     pid = fork();

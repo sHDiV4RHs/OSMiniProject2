@@ -27,7 +27,6 @@ int uptime(void);
 int getptable(int, void*);
 int getppid(void);
 int chpr(int, int);
-int wait2(int*, int*, int*);
 int yield(void);
 int getperformancedata(int*, int*);
 

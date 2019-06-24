@@ -23,7 +23,6 @@
 #define SYS_getptable 22
 #define SYS_getppid 23
 #define SYS_chpr   24
-#define SYS_wait2  25
 #define SYS_yield  26
 
 #define SYS_getperformancedata 28

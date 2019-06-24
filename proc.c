@@ -96,7 +96,7 @@ found:
   #endif
 
   p->ctime = ticks;
-  p->retime = 0;
+  p->wtime = 0;
   p->rtime = 0;
   p->stime = 0;
   p->etime = 0;
@@ -326,7 +326,7 @@ wait(void)
   }
 }
 
-int wait2(int *retime, int *rutime, int *stime) {
+int getperformancedata(int *wtime, int *rtime) {
   struct proc *p;
   int havekids, pid;
   acquire(&ptable.lock);
@@ -339,9 +339,8 @@ int wait2(int *retime, int *rutime, int *stime) {
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
-        *retime = p->retime;
-        *rutime = p->rtime;
-        *stime = p->stime;
+        *wtime = p->wtime;
+        *rtime = p->rtime;
 
         pid = p->pid;
         kfree(p->kstack);
@@ -353,7 +352,7 @@ int wait2(int *retime, int *rutime, int *stime) {
         p->name[0] = 0;
         p->killed = 0;
         p->ctime = 0;
-        p->retime = 0;
+        p->wtime = 0;
         p->rtime = 0;
         p->etime = 0;
         p->stime = 0;
@@ -732,11 +731,6 @@ chpr(int pid, int priority)
   return pid;
 }
 
-
-int getperformancedata(int* wtime, int* rtime) {
-    return 404;
-}
-
 void updateEveryTick() {
     acquire(&ptable.lock);
 
@@ -750,7 +744,7 @@ void updateEveryTick() {
         } else if(p->state == SLEEPING) {
             p->stime++;
         } else if(p->state == RUNNABLE) {
-            p->retime++;
+            p->wtime++;
         } else if(p->state == RUNNING) {
             p->rtime++;
         }

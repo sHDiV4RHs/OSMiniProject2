@@ -57,8 +57,8 @@ struct proc {
   int etime;
   
   int stime;                   //process SLEEPING time
-  int retime;                  //process READY(RUNNABLE) time
-  int rtime; //process RUNNING time
+  int wtime;                  //process READY (RUNNABLE) time / waiting time
+  int rtime;                   //process RUNNING time (CBT)
 };
 
 // Process memory is laid out contiguously, low addresses first:
