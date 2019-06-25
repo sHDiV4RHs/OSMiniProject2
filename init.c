@@ -12,7 +12,6 @@ main(void)
 {
   int pid, wpid;
 
-  chpr(getpid(), 1);
 
   if(open("console", O_RDWR) < 0){
     mknod("console", 1, 1);
@@ -21,44 +20,26 @@ main(void)
   dup(0);  // stdout
   dup(0);  // stderr
 
-  #ifdef DEFAULT
+#ifdef DEFAULT
     printf(1, "Scheduler policy: DEFAULT\n");
-  #else
-  #ifdef PRIORITY
-    printf(1, "Scheduler policy: PRIORITY\n");
-  #else
-  #ifdef FCFS
-    printf(1, "Scheduler policy: FCFS\n");
-  #else
-  #ifdef SML
-    printf(1, "Scheduler policy: SML\n");
-  #else
-
-  #endif
-  #endif
-  #endif
-  #endif
-
-//#ifdef DEFAULT
-//    printf(1, "Scheduler policy: DEFAULT\n");
-//#else
-//#ifdef RR
-//    printf(1, "Scheduler policy: RR\n");
-//#else
-//#ifdef FRR
-//    printf(1, "Scheduler policy: FIFO Round Robin\n");
-//#else
-//#ifdef GRT
-//    printf(1, "Scheduler policy: Guarnteed (Fair-Share) scheduling\n");
-//#else
-//#ifdef THREEQ
-//    printf(1, "Scheduler policy: Multi level queue scheduling\n");
-//#else
-//#endif
-//#endif
-//#endif
-//#endif
-//#endif
+#else
+#ifdef RR
+    printf(1, "Scheduler policy: Round Robin\n");
+#else
+#ifdef FRR
+    printf(1, "Scheduler policy: FIFO Round Robin\n");
+#else
+#ifdef GRT
+    printf(1, "Scheduler policy: Guarnteed (Fair-Share) scheduling\n");
+#else
+#ifdef THREEQ
+    printf(1, "Scheduler policy: Multi level queue scheduling\n");
+#else
+#endif
+#endif
+#endif
+#endif
+#endif
 
   for(;;){
     printf(1, "init: starting sh\n");

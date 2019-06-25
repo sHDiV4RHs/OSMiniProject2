@@ -105,7 +105,7 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_getptable(void);
 extern int sys_getppid(void);
-extern int sys_chpr(void);
+extern int sys_nice(void);
 extern int sys_yield(void);
 extern int sys_getperformancedata(void);
 
@@ -133,7 +133,7 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_getptable] sys_getptable,
 [SYS_getppid] sys_getppid,
-[SYS_chpr]    sys_chpr,
+[SYS_nice]    sys_nice,
 [SYS_yield]    sys_yield,
 [SYS_getperformancedata] sys_getperformancedata,
 };

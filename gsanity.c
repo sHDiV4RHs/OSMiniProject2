@@ -4,7 +4,6 @@
 
 int main(void)
 {
-    int wpid;
 
     printf(1, "Father pid is %d\n", getpid());
     sleep(10);

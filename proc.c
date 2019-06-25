@@ -87,14 +87,8 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
-  #ifdef PRIORITY
-    p->priority = 10;
-  #else
-  #ifdef SML
-    p->priority = 2;
-  #endif
-  #endif
 
+  p->priority = 0;
   p->ctime = ticks;
   p->wtime = 0;
   p->rtime = 0;
@@ -143,6 +137,7 @@ userinit(void)
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
   p->sz = PGSIZE;
   p->ctime = ticks;
+  p->priority = 0;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
   p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
@@ -309,6 +304,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->ctime = 0;
+        p->priority = 0;
         p->state = UNUSED;
         release(&ptable.lock);
         return pid;
@@ -382,48 +378,20 @@ int getperformancedata(int *wtime, int *rtime) {
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
 void
-scheduler(void)
-{
-  struct proc *p = 0;
+scheduler(void) {
+    struct proc *p = 0;
 
-  struct cpu *c = mycpu();
-  c->proc = 0;
+    struct cpu *c = mycpu();
+    c->proc = 0;
 
-  for(;;) {
-      // Enable interrupts on this processor.
-      sti();
-      acquire(&ptable.lock);
-
-      /** GRT **/
-      struct proc *bestP = 0;
-      double bestPriority = 0;
-      uint current_time = ticks; // fix current time
-
-      // find a runnable process
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-          if(p->state == RUNNABLE) {
-              bestPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
-              bestP = p;
-              break;
-          }
-      }
-
-      // find best runnable process
-      for(; p < &ptable.proc[NPROC]; p++) {
-          if (p->state != RUNNABLE)
-              continue;
-
-          double pPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
-
-          if (pPriority < bestPriority) {
-              bestP = p;
-              bestPriority = pPriority;
-          }
-      }
-
-      p = bestP;
-
-      if(p != 0) {
+    for (;;) {
+        // Enable interrupts on this processor.
+        sti();
+        acquire(&ptable.lock);
+#ifdef DEFAULT
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+          if(p->state != RUNNABLE)
+            continue;
 
           // Switch to chosen process.  It is the process's job
           // to release ptable.lock and then reacquire it
@@ -438,10 +406,148 @@ scheduler(void)
           // Process is done running for now.
           // It should have changed its p->state before coming back.
           c->proc = 0;
-      }
+        }
+#else
+#ifdef RR
 
-      release(&ptable.lock);
-  }
+#else
+#ifdef FRR
+
+#else
+#ifdef GRT
+        /** GRT **/
+        struct proc *bestP = 0;
+        double bestPriority = 0;
+        uint current_time = ticks; // fix current time
+
+        // find a runnable process
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if(p->state == RUNNABLE) {
+                bestPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
+                bestP = p;
+                break;
+            }
+        }
+
+        // find best runnable process
+        for(; p < &ptable.proc[NPROC]; p++) {
+            if (p->state != RUNNABLE)
+                continue;
+
+            double pPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
+
+            if (pPriority < bestPriority) {
+                bestP = p;
+                bestPriority = pPriority;
+            }
+        }
+
+        p = bestP;
+
+        if(p != 0) {
+
+            // Switch to chosen process.  It is the process's job
+            // to release ptable.lock and then reacquire it
+            // before jumping back to us.
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+        }
+#else
+#ifdef THREEQ
+        /** 3Q **/
+        struct proc *bestP = 0;
+        double bestPriority = 0;
+        uint current_time = 0; // fix current time
+        int foundPriority0 = 0;
+        int foundPriority1 = 0;
+        int foundPriority2 = 0;
+        // find a runnable process with priority 0
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if(p->state == RUNNABLE && p->priority == 0) {
+                current_time = ticks;
+                bestPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
+                bestP = p;
+                foundPriority0 = 1;
+                break;
+            }
+        }
+        // Q1
+        if(foundPriority0) {
+            // find best runnable process
+            for(; p < &ptable.proc[NPROC]; p++) {
+                if (p->state != RUNNABLE || p->priority != 0)
+                    continue;
+
+                double pPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
+
+                if (pPriority < bestPriority) {
+                    bestP = p;
+                    bestPriority = pPriority;
+                }
+            }
+
+            p = bestP;
+
+        }
+
+        else {
+          for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+            if(p->state == RUNNABLE && p->priority == 1) {
+              foundPriority1 = 1;
+              break;
+            }
+          // Q2
+          if(foundPriority1) {
+            // FIFO RR HERE
+          }
+
+          else {
+            for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+              if(p->state == RUNNABLE && p->priority == 2) {
+                foundPriority2 = 1;
+                break;
+              }
+            //Q3
+            if(foundPriority2) {
+              // RR HERE
+            }
+          }
+
+        }
+
+        if(foundPriority0 || foundPriority1 || foundPriority2) {
+
+            // Switch to chosen process.  It is the process's job
+            // to release ptable.lock and then reacquire it
+            // before jumping back to us.
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            // Process is done running for now.
+            // It should have changed its p->state before coming back.
+            c->proc = 0;
+        }
+#else
+#endif
+#endif
+#endif
+#endif
+#endif
+
+        release(&ptable.lock);
+    }
 }
 
 //      // Loop over process table looking for process to run.
@@ -466,9 +572,6 @@ scheduler(void)
 //              c->proc = 0;
 //          }
 //      }
-
-
-
 
 //      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
 //
@@ -547,41 +650,41 @@ scheduler(void)
 //        }
 
 
-/*void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  c->proc = 0;
-
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
-
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&ptable.lock);
-
-  }
-}*/
+//void
+//scheduler(void)
+//{
+//  struct proc *p;
+//  struct cpu *c = mycpu();
+//  c->proc = 0;
+//
+//  for(;;){
+//    // Enable interrupts on this processor.
+//    sti();
+//
+//    // Loop over process table looking for process to run.
+//    acquire(&ptable.lock);
+//    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//      if(p->state != RUNNABLE)
+//        continue;
+//
+//      // Switch to chosen process.  It is the process's job
+//      // to release ptable.lock and then reacquire it
+//      // before jumping back to us.
+//      c->proc = p;
+//      switchuvm(p);
+//      p->state = RUNNING;
+//
+//      swtch(&(c->scheduler), p->context);
+//      switchkvm();
+//
+//      // Process is done running for now.
+//      // It should have changed its p->state before coming back.
+//      c->proc = 0;
+//    }
+//    release(&ptable.lock);
+//
+//  }
+//}
 
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -769,20 +872,23 @@ struct proc *getptable_proc(void) {
 
 // Change Process priority
 int
-chpr(int pid, int priority)
+nice(int pid)
 {
   struct proc *p;
 
   acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->pid == pid) {
-        p->priority = priority;
-        break;
+        if(p->priority + 1 < 3) {
+            p->priority += 1;
+            release(&ptable.lock);
+            return 1;
+        }
     }
   }
-  release(&ptable.lock);
 
-  return pid;
+  release(&ptable.lock);
+  return 0;
 }
 
 void updateEveryTick() {

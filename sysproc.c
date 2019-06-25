@@ -146,18 +146,16 @@ sys_getppid(void)
 }
 
 // change priority of a specific process
-extern int chpr(int, int);
+extern int nice(int);
 
 int
-sys_chpr(void)
+sys_nice(void)
 {
-  int pid, pr;
+  int pid;
   if(argint(0, &pid) < 0)
     return -1;
-  if(argint(1, &pr) < 0)
-    return -1;
 
-  return chpr(pid, pr);
+  return nice(pid);
 }
 
 int sys_yield(void) {
