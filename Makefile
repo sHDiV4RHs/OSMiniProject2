@@ -179,13 +179,8 @@ UPROGS=\
 	_usertests\
 	_wc\
 	_zombie\
-	_ps\
-	_nice\
-	_foo01\
-	_foo02\
-	_sanity\
-	_SMLsanity\
 	_waittest\
+	_gsanity\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

@@ -1,28 +1,7 @@
-//#include "types.h"
-//#include "user.h"
-//
-//int main(void)
-//{
-//    int *p1 = 0, *p2 = 0;
-//    printf(1, "getperformancedata: %d \n", getperformancedata(p1, p2));
-//    exit();
-//}
-
-// Test that fork fails gracefully.
-// Tiny executable so that the limit can be filling the proc table.
-
 #include "types.h"
 #include "stat.h"
 #include "user.h"
 
-#define N  1000
-/*
-void
-printf(int fd, char *s, ...)
-{
-  write(fd, s, strlen(s));
-}
-*/
 
 void
 foo()
