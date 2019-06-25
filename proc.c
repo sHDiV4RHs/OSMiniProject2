@@ -410,10 +410,32 @@ scheduler(void) {
 #else
 #ifdef RR
         /** RR **/
-        
+/*        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        	if(p->state != RUNNABLE)
+        		continue;
+
+        	for (int i = 0; i < QUANTA; i++){
+        		if (p->rtime == p->etime - p->ctime - p->wtime)
+        			break;
+        		else {
+        		c->proc = p; 
+        		switchuvm(p);
+        		p->state = RUNNING;
+
+        		swtch(&(C->scheduler), p->context)
+        		switchkvm();
+        		c->proc = 0;
+        	}
+        }
+    }*/
+
 
 #else
 #ifdef FRR
+/*       for (; i < count; ++i)
+       {
+        	/* code */
+      /*}
 
 #else
 #ifdef GRT
