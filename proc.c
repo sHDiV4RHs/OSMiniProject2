@@ -1,5 +1,6 @@
 #include "types.h"
 #include "defs.h"
+#include "stdlib.h"
 #include "param.h"
 #include "memlayout.h"
 #include "mmu.h"
@@ -28,6 +29,10 @@ pinit(void)
 int
 cpuid() {
   return mycpu()-cpus;
+}
+
+int cmpfunc (const void * a, const void * b) {
+   return ( ((struct proc *)a)->ctime - ((struct proc *)b)->ctime );
 }
 
 // Must be called with interrupts disabled to avoid the caller being
@@ -433,6 +438,29 @@ scheduler(void) {
 #else
 #ifdef FRR
 
+
+    p = ptable.proc;
+
+    qsort(p, NPROC, sizeof(p), cmpfunc);
+
+     for (; p < &ptable.proc[NPROC]; p++) {
+        	if(p->state != RUNNABLE)
+        		continue;
+
+        	for (int i = 0; i < QUANTA; i++){
+        		if(p->etime >0 || p->state != RUNNABLE)
+        			break;
+        		else {
+        		c->proc = p; 
+        		switchuvm(p);
+        		p->state = RUNNING;
+
+        		swtch(&(c->scheduler), p->context);
+        		switchkvm();
+        		c->proc = 0;
+        	}
+        }
+    }
 
 #else
 #ifdef GRT
