@@ -410,7 +410,7 @@ scheduler(void) {
 #else
 #ifdef RR
         /** RR **/
-/*        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
         	if(p->state != RUNNABLE)
         		continue;
 
@@ -422,20 +422,16 @@ scheduler(void) {
         		switchuvm(p);
         		p->state = RUNNING;
 
-        		swtch(&(C->scheduler), p->context)
+        		swtch(&(c->scheduler), p->context);
         		switchkvm();
         		c->proc = 0;
         	}
         }
-    }*/
+    }
 
 
 #else
 #ifdef FRR
-/*       for (; i < count; ++i)
-       {
-        	/* code */
-      /*}
 
 #else
 #ifdef GRT
