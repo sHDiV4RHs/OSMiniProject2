@@ -415,7 +415,7 @@ scheduler(void) {
         		continue;
 
         	for (int i = 0; i < QUANTA; i++){
-        		if (p->rtime == p->etime - p->ctime - p->wtime)
+        		if(p->etime >0 || p->state != RUNNABLE)
         			break;
         		else {
         		c->proc = p; 
@@ -432,6 +432,7 @@ scheduler(void) {
 
 #else
 #ifdef FRR
+
 
 #else
 #ifdef GRT
