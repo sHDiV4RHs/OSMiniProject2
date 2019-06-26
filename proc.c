@@ -1,6 +1,5 @@
 #include "types.h"
 #include "defs.h"
-#include "stdlib.h"
 #include "param.h"
 #include "memlayout.h"
 #include "mmu.h"
@@ -31,10 +30,24 @@ cpuid() {
   return mycpu()-cpus;
 }
 
-int cmpfunc (const void * a, const void * b) {
-   return ( ((struct proc *)a)->ctime - ((struct proc *)b)->ctime );
-}
-
+void swap(struct proc* xp, struct proc* yp) 
+{ 
+    struct proc temp = *xp; 
+    *xp = *yp; 
+    *yp = temp; 
+} 
+  
+// A function to implement bubble sort 
+void bubbleSort(struct proc* arr, int n) 
+{ 
+   int i, j; 
+   for (i = 0; i < n-1; i++)       
+  
+       // Last i elements are already in place    
+       for (j = 0; j < n-i-1; j++)  
+           if (arr[j].ctime > arr[j+1].ctime) 
+              swap(&arr[j], &arr[j+1]); 
+} 
 // Must be called with interrupts disabled to avoid the caller being
 // rescheduled between reading lapicid and running through the loop.
 struct cpu*
@@ -438,10 +451,10 @@ scheduler(void) {
 #else
 #ifdef FRR
 
-
+     /** FRR **/
     p = ptable.proc;
 
-    qsort(p, NPROC, sizeof(p), cmpfunc);
+    bubbleSort(p, NPROC);
 
      for (; p < &ptable.proc[NPROC]; p++) {
         	if(p->state != RUNNABLE)
