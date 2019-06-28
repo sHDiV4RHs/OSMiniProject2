@@ -13,7 +13,7 @@ int main(void) {
 
     if(pid == 0) {
     	for(int i = 0; i < 1000; i++) {
-       	 printf(1, "child %d \n", getpid());
+       	 printf(1, "%d ", getpid());
     	}
 	}
 
