@@ -3,21 +3,26 @@
 #include "user.h"
 
 int main(void)
-{
-
-   // printf(1, "Father pid is %d\n", getpid());
-    sleep(10);
+{	
+	int pid;
     for (int i = 0; i < 10; ++i) {
-    	int pid = fork();
+    	pid = fork();
+    	if(pid == 0)
+    		break;
     }
-    for(int i = 1; i < 1001; i++) {
+
+    for(int i = 0 && pid == 0; i < 10; i++) {
         printf(1, "child %d prints for the %d time\n", getpid(), i);
     }
 
     // wait for child
-    if(pid > 0) {
-        while(wait() > 0);
-    }
+    int wTime[10];
+        int rTime[10];
+        for(int i = 0; i < 10; i++) {
+            pid = getperformancedata(&(wTime[i]), &(rTime[i]));
+            printf(1, "pid: %d, waitingTime: %d, turnaroundTime: %d\n",
+                    pid, wTime, wTime[i]+rTime);
+        }
 
     exit();
 }
