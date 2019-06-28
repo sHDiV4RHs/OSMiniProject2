@@ -749,10 +749,7 @@ scheduler(void) {
             }
 
         }
-
-        if (foundPriority0 || foundPriority1 || foundPriority2) {
-
-        }
+        
 #else
 #endif
 #endif
