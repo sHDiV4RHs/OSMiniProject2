@@ -13,7 +13,7 @@ int main(void) {
 
     if(pid == 0) {
     	for(int i = 0; i < 1000; i++) {
-       	 printf(1, "child %d", getpid());
+       	 printf(1, "child %d \n", getpid());
     	}
 	}
 
@@ -22,7 +22,7 @@ int main(void) {
     int rTime[10];
     for(int i = 0; i < 10; i++) {
         pid = getperformancedata(&(wTime[i]), &(rTime[i]));
-        printf(1, "pid: %d, waitingTime: %d, turnaroundTime: %d\n", pid, wTime, wTime[i]+rTime);
+      //  printf(1, "pid: %d, waitingTime: %d, turnaroundTime: %d\n", pid, wTime, wTime[i]+rTime);
     }
 
     exit();
