@@ -82,38 +82,37 @@ int main(void)
 }
 
 /** RESULT
-
-pid: 14, waitingTime: 269, turnaroundTime: 336
-pid: 8, waitingTime: 282, turnaroundTime: 353
-pid: 5, waitingTime: 310, turnaroundTime: 390
-pid: 26, waitingTime: 318, turnaroundTime: 408
-pid: 32, waitingTime: 348, turnaroundTime: 455
-pid: 20, waitingTime: 386, turnaroundTime: 506
-pid: 11, waitingTime: 383, turnaroundTime: 511
-pid: 29, waitingTime: 384, turnaroundTime: 509
-pid: 23, waitingTime: 371, turnaroundTime: 504
-pid: 17, waitingTime: 393, turnaroundTime: 574
-pid: 6, waitingTime: 553, turnaroundTime: 636
-pid: 9, waitingTime: 600, turnaroundTime: 710
-pid: 12, waitingTime: 633, turnaroundTime: 755
-pid: 15, waitingTime: 714, turnaroundTime: 856
-pid: 18, waitingTime: 753, turnaroundTime: 862
-pid: 21, waitingTime: 846, turnaroundTime: 959
-pid: 24, waitingTime: 842, turnaroundTime: 986
-pid: 30, waitingTime: 971, turnaroundTime: 1064
-pid: 27, waitingTime: 942, turnaroundTime: 1087
-pid: 4, waitingTime: 1115, turnaroundTime: 1191
-pid: 33, waitingTime: 1055, turnaroundTime: 1221
-pid: 7, waitingTime: 1202, turnaroundTime: 1315
-pid: 10, waitingTime: 1256, turnaroundTime: 1347
-pid: 13, waitingTime: 1314, turnaroundTime: 1450
-pid: 16, waitingTime: 1339, turnaroundTime: 1446
-pid: 22, waitingTime: 1436, turnaroundTime: 1532
-pid: 19, waitingTime: 1436, turnaroundTime: 1604
-pid: 25, waitingTime: 1524, turnaroundTime: 1655
-pid: 28, waitingTime: 1583, turnaroundTime: 1676
-pid: 31, waitingTime: 1639, turnaroundTime: 1764
-Q[0]-> len: 10, waitingTimeAverage: 344, turnaroundTimeAverage: 454
-Q[1]-> len: 10, waitingTimeAverage: 790, turnaroundTimeAverage: 913
-Q[2]-> len: 10, waitingTimeAverage: 1384, turnaroundTimeAverage: 1498
-ALL-> waitingTimeAverage: 839, turnaroundTimeAverage: 955 **/
+pid: 29, waitingTime: 365, turnaroundTime: 461
+pid: 5, waitingTime: 393, turnaroundTime: 496
+pid: 11, waitingTime: 379, turnaroundTime: 486
+pid: 14, waitingTime: 406, turnaroundTime: 513
+pid: 8, waitingTime: 439, turnaroundTime: 549
+pid: 23, waitingTime: 399, turnaroundTime: 512
+pid: 32, waitingTime: 378, turnaroundTime: 488
+pid: 17, waitingTime: 411, turnaroundTime: 529
+pid: 26, waitingTime: 401, turnaroundTime: 527
+pid: 20, waitingTime: 429, turnaroundTime: 569
+pid: 9, waitingTime: 666, turnaroundTime: 752
+pid: 15, waitingTime: 701, turnaroundTime: 804
+pid: 6, waitingTime: 763, turnaroundTime: 862
+pid: 12, waitingTime: 768, turnaroundTime: 870
+pid: 21, waitingTime: 805, turnaroundTime: 911
+pid: 18, waitingTime: 880, turnaroundTime: 980
+pid: 30, waitingTime: 931, turnaroundTime: 1013
+pid: 24, waitingTime: 932, turnaroundTime: 1025
+pid: 27, waitingTime: 885, turnaroundTime: 1022
+pid: 33, waitingTime: 954, turnaroundTime: 1033
+pid: 25, waitingTime: 1167, turnaroundTime: 1238
+pid: 7, waitingTime: 1227, turnaroundTime: 1349
+pid: 13, waitingTime: 1287, turnaroundTime: 1385
+pid: 10, waitingTime: 1268, turnaroundTime: 1394
+pid: 16, waitingTime: 1308, turnaroundTime: 1419
+pid: 22, waitingTime: 1394, turnaroundTime: 1454
+pid: 19, waitingTime: 1358, turnaroundTime: 1462
+pid: 28, waitingTime: 1374, turnaroundTime: 1465
+pid: 34, waitingTime: 1395, turnaroundTime: 1482
+pid: 31, waitingTime: 1401, turnaroundTime: 1499
+Q[0]-> len: 10, waitingTimeAverage: 400, turnaroundTimeAverage: 513
+Q[1]-> len: 10, waitingTimeAverage: 828, turnaroundTimeAverage: 927
+Q[2]-> len: 10, waitingTimeAverage: 1317, turnaroundTimeAverage: 1414
+ALL-> waitingTimeAverage: 848, turnaroundTimeAverage: 951 **/

@@ -466,7 +466,6 @@ scheduler(void) {
 
 #else
 #ifdef FRR
-
         /** FRR **/
         struct proc *bestP = 0;
 
@@ -679,12 +678,31 @@ scheduler(void) {
             // Q2
             if (foundPriority1) {
                 // FIFO RR
-                for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-                    if (p->state != RUNNABLE || p->priority != 1)
+                bestP = 0;
+
+                // find a runnable process
+                for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+                    if(p->state == RUNNABLE && p->priority == 1) {
+                        bestP = p;
+                        break;
+                    }
+                }
+
+                // find best runnable process
+                for(; p < &ptable.proc[NPROC]; p++) {
+                    if (p->state != RUNNABLE)
                         continue;
 
-                    for (int i = 0; i < QUANTA; i++) {
-                        if (p->etime > 0 || p->state != RUNNABLE)
+                    if (p->enterTime < bestP->enterTime && p->priority == 1) {
+                        bestP = p;
+                    }
+                }
+
+                p = bestP;
+
+                if(p != 0) {
+                    for (int i = 0; i < QUANTA; i++){
+                        if(p->etime >0 || p->state != RUNNABLE ||  p->priority != 1)
                             break;
                         else {
                             c->proc = p;
@@ -696,6 +714,8 @@ scheduler(void) {
                             c->proc = 0;
                         }
                     }
+
+                    p->enterTime = ticks;
                 }
 
             } else {
