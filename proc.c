@@ -120,6 +120,7 @@ found:
 
   p->priority = 0;
   p->ctime = ticks;
+  p->enterTime = p->ctime;
   p->wtime = 0;
   p->rtime = 0;
   p->stime = 0;
@@ -167,6 +168,7 @@ userinit(void)
   inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
   p->sz = PGSIZE;
   p->ctime = ticks;
+  p->enterTime = p->ctime;
   p->priority = 0;
   memset(p->tf, 0, sizeof(*p->tf));
   p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
@@ -334,6 +336,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->ctime = 0;
+        p->enterTime = p->ctime;
         p->priority = 0;
         p->state = UNUSED;
         release(&ptable.lock);
@@ -378,6 +381,7 @@ int getperformancedata(int *wtime, int *rtime) {
         p->name[0] = 0;
         p->killed = 0;
         p->ctime = 0;
+        p->enterTime  = p->ctime;
         p->wtime = 0;
         p->rtime = 0;
         p->etime = 0;
@@ -441,86 +445,13 @@ scheduler(void) {
 #ifdef RR
         /** RR **/
         for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-        	if(p->state != RUNNABLE)
-        		continue;
+            if(p->state != RUNNABLE)
+                continue;
 
-        	for (int i = 0; i < QUANTA; i++){
-        		if(p->etime >0 || p->state != RUNNABLE)
-        			break;
-        		else {
-        		c->proc = p;
-        		switchuvm(p);
-        		p->state = RUNNING;
-
-        		swtch(&(c->scheduler), p->context);
-        		switchkvm();
-        		c->proc = 0;
-        	    }
-            }
-        }
-
-
-#else
-#ifdef FRR
-
-    /** FRR **/
-    p = ptable.proc;
-    struct proc* arr = ptable.proc;
-
-
-//    bubbleSort(p, NPROC, cpy);
-
-    // give them all ONE shot
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-        if(p->state != RUNNABLE)
-            continue;
-
-        c->proc = p;
-        switchuvm(p);
-        p->state = RUNNING;
-
-        swtch(&(c->scheduler), p->context);
-        switchkvm();
-        c->proc = 0;
-    }
-
-    // sorting
-    int previousMinIdx = -1;
-    for(int k = 0; k < NPROC; k++) {
-
-        int candidateForMinIdx = 0;
-        for(int i = 0; i < NPROC; i++) {
-//            if(arr[i].state != RUNNABLE)
-//                continue;
-
-            if(arr[i].ctime < arr[candidateForMinIdx].ctime) {
-                if(previousMinIdx != -1) {
-                    if(arr[i].ctime > arr[previousMinIdx].ctime) {
-                        candidateForMinIdx = i;
-                    }
-                    else if(arr[i].ctime == arr[previousMinIdx].ctime) {
-                        if(i > previousMinIdx) {
-                            candidateForMinIdx = i;
-                        }
-                    }
-                }
+            for (int i = 0; i < QUANTA; i++){
+                if(p->etime >0 || p->state != RUNNABLE)
+                    break;
                 else {
-                    candidateForMinIdx = i;
-                }
-            }
-        }
-
-        // service min process
-        p = &arr[candidateForMinIdx];
-
-        if(p->state != RUNNABLE)
-            continue;
-
-
-        for (int i = 0; i < QUANTA; i++){
-            if(p->etime >0 || p->state != RUNNABLE)
-                break;
-            else {
                 c->proc = p;
                 switchuvm(p);
                 p->state = RUNNING;
@@ -528,13 +459,120 @@ scheduler(void) {
                 swtch(&(c->scheduler), p->context);
                 switchkvm();
                 c->proc = 0;
+                }
             }
         }
 
 
-        previousMinIdx = candidateForMinIdx;
-    }
+#else
+#ifdef FRR
 
+        /** FRR **/
+        struct proc *bestP = 0;
+
+        // find a runnable process
+        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if(p->state == RUNNABLE) {
+                bestP = p;
+                break;
+            }
+        }
+
+        // find best runnable process
+        for(; p < &ptable.proc[NPROC]; p++) {
+            if (p->state != RUNNABLE)
+                continue;
+
+            if (p->enterTime < bestP->enterTime) {
+                bestP = p;
+            }
+        }
+
+        p = bestP;
+
+        if(p != 0) {
+            for (int i = 0; i < QUANTA; i++){
+                if(p->etime >0 || p->state != RUNNABLE)
+                    break;
+                else {
+                    c->proc = p;
+                    switchuvm(p);
+                    p->state = RUNNING;
+
+                    swtch(&(c->scheduler), p->context);
+                    switchkvm();
+                    c->proc = 0;
+                }
+            }
+
+            p->enterTime = ticks;
+        }
+
+/* Implementation with sorting */
+
+//        p = ptable.proc;
+//        struct proc* arr = ptable.proc;
+//
+//
+//    //    bubbleSort(p, NPROC, cpy);
+//
+//        // give them all ONE shot
+//        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+//            if(p->state != RUNNABLE)
+//                continue;
+//            if(p->pid > 2)
+//                continue;
+//            c->proc = p;
+//            switchuvm(p);
+//            p->state = RUNNING;
+//
+//            swtch(&(c->scheduler), p->context);
+//            switchkvm();
+//            c->proc = 0;
+//        }
+//
+//        // sorting
+//        int previousMinIdx = -1;
+//        int n = NPROC;
+//        for(int k = 0; k < n; k++) {
+//            int candidateForMinIdx = 0;
+//            for(int i = 0; i < n; i++) {
+//    //            if(arr[i].state != RUNNABLE)
+//    //                continue;
+//
+//                if(arr[i].ctime < arr[candidateForMinIdx].ctime) {
+//                    if(previousMinIdx != -1) {
+//                        if(arr[i].ctime > arr[previousMinIdx].ctime) {
+//                            candidateForMinIdx = i;
+//                        }
+//                        else if(arr[i].ctime == arr[previousMinIdx].ctime) {
+//                            if(i > previousMinIdx) {
+//                                candidateForMinIdx = i;
+//                            }
+//                        }
+//                    }
+//                    else {
+//                        candidateForMinIdx = i;
+//                    }
+//                }
+//            }
+//
+//            // service min process
+//            p = &arr[candidateForMinIdx];
+//
+//            if(p->state != RUNNABLE)
+//                continue;
+//
+//            c->proc = p;
+//            switchuvm(p);
+//            p->state = RUNNING;
+//
+//            swtch(&(c->scheduler), p->context);
+//            switchkvm();
+//            c->proc = 0;
+//
+//            previousMinIdx = candidateForMinIdx;
+//        }
 
 
 
@@ -595,8 +633,8 @@ scheduler(void) {
         int foundPriority1 = 0;
         int foundPriority2 = 0;
         // find a runnable process with priority 0
-        for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-            if(p->state == RUNNABLE && p->priority == 0) {
+        for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+            if (p->state == RUNNABLE && p->priority == 0) {
                 current_time = ticks;
                 bestPriority = ((double) (p->rtime)) / (1 + current_time - p->ctime);
                 bestP = p;
@@ -605,10 +643,10 @@ scheduler(void) {
             }
         }
         // Q1
-        if(foundPriority0) {
+        if (foundPriority0) {
             // GRT
             // find best runnable process
-            for(; p < &ptable.proc[NPROC]; p++) {
+            for (; p < &ptable.proc[NPROC]; p++) {
                 if (p->state != RUNNABLE || p->priority != 0)
                     continue;
 
@@ -622,57 +660,31 @@ scheduler(void) {
 
             p = bestP;
 
+            c->proc = p;
+            switchuvm(p);
+            p->state = RUNNING;
+
+            swtch(&(c->scheduler), p->context);
+            switchkvm();
+
+            c->proc = 0;
+
         }
-
         else {
-          for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-            if(p->state == RUNNABLE && p->priority == 1) {
-              foundPriority1 = 1;
-              break;
-            }
-          // Q2
-          if(foundPriority1) {
-            // FIFO RR
-              p = ptable.proc;
-
-              bubbleSort(p, NPROC);
-
-              for (; p < &ptable.proc[NPROC]; p++) {
-                  if(p->state != RUNNABLE || p->priority != 1)
-                      continue;
-
-                  for (int i = 0; i < QUANTA; i++){
-                      if(p->etime >0 || p->state != RUNNABLE)
-                          break;
-                      else {
-                          c->proc = p;
-                          switchuvm(p);
-                          p->state = RUNNING;
-
-                          swtch(&(c->scheduler), p->context);
-                          switchkvm();
-                          c->proc = 0;
-                      }
-                  }
-              }
-
-          }
-
-          else {
-            for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-              if(p->state == RUNNABLE && p->priority == 2) {
-                foundPriority2 = 1;
-                break;
-              }
-            //Q3
-            if(foundPriority2) {
-              // RR
+            for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+                if (p->state == RUNNABLE && p->priority == 1) {
+                    foundPriority1 = 1;
+                    break;
+                }
+            // Q2
+            if (foundPriority1) {
+                // FIFO RR
                 for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-                    if(p->state != RUNNABLE || p->priority != 2)
+                    if (p->state != RUNNABLE || p->priority != 1)
                         continue;
 
-                    for (int i = 0; i < QUANTA; i++){
-                        if(p->etime >0 || p->state != RUNNABLE)
+                    for (int i = 0; i < QUANTA; i++) {
+                        if (p->etime > 0 || p->state != RUNNABLE)
                             break;
                         else {
                             c->proc = p;
@@ -685,26 +697,41 @@ scheduler(void) {
                         }
                     }
                 }
+
+            } else {
+                for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+                    if (p->state == RUNNABLE && p->priority == 2) {
+                        foundPriority2 = 1;
+                        break;
+                    }
+                //Q3
+                if (foundPriority2) {
+                    // RR
+                    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+                        if (p->state != RUNNABLE || p->priority != 2)
+                            continue;
+
+                        for (int i = 0; i < QUANTA; i++) {
+                            if (p->etime > 0 || p->state != RUNNABLE)
+                                break;
+                            else {
+                                c->proc = p;
+                                switchuvm(p);
+                                p->state = RUNNING;
+
+                                swtch(&(c->scheduler), p->context);
+                                switchkvm();
+                                c->proc = 0;
+                            }
+                        }
+                    }
+                }
             }
-          }
 
         }
 
-        if(foundPriority0 || foundPriority1 || foundPriority2) {
+        if (foundPriority0 || foundPriority1 || foundPriority2) {
 
-            // Switch to chosen process.  It is the process's job
-            // to release ptable.lock and then reacquire it
-            // before jumping back to us.
-            c->proc = p;
-            switchuvm(p);
-            p->state = RUNNING;
-
-            swtch(&(c->scheduler), p->context);
-            switchkvm();
-
-            // Process is done running for now.
-            // It should have changed its p->state before coming back.
-            c->proc = 0;
         }
 #else
 #endif
