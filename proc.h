@@ -70,5 +70,3 @@ struct proc {
 static void wakeup1(void *chan);
 
 void updateEveryTick();
-int random(int max);
-struct proc* findReadyProcess(int *index1, int *index2, int *index3, uint *priority);

@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -17,6 +19,8 @@ static struct proc *initproc;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
+
+
 
 void
 pinit(void)
@@ -30,24 +34,32 @@ cpuid() {
   return mycpu()-cpus;
 }
 
-void swap(struct proc* xp, struct proc* yp) 
-{ 
-    struct proc temp = *xp; 
-    *xp = *yp; 
-    *yp = temp; 
-} 
-  
+//void swap(struct proc *xp, struct proc *yp)
+//{
+//    struct proc temp = *xp;
+//    *xp = *yp;
+//    *yp = temp;
+//}
+
+
 // A function to implement bubble sort 
-void bubbleSort(struct proc* arr, int n) 
-{ 
-   int i, j; 
-   for (i = 0; i < n-1; i++)       
-  
-       // Last i elements are already in place    
-       for (j = 0; j < n-i-1; j++)  
-           if (arr[j].ctime > arr[j+1].ctime) 
-              swap(&arr[j], &arr[j+1]); 
-} 
+void bubbleSort(struct proc* arr, int n)
+{
+    int i, j;
+    for (i = 0; i < n-1; i++) {
+
+        // Last i elements are already in place
+        for (j = 0; j < n - i - 1; j++) {
+            if (arr[j].ctime > arr[j + 1].ctime) {
+//                swap(&arr[j], &arr[j+1]);
+                struct proc temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = arr[j];
+            }
+        }
+    }
+}
+
 // Must be called with interrupts disabled to avoid the caller being
 // rescheduled between reading lapicid and running through the loop.
 struct cpu*
@@ -436,44 +448,95 @@ scheduler(void) {
         		if(p->etime >0 || p->state != RUNNABLE)
         			break;
         		else {
-        		c->proc = p; 
+        		c->proc = p;
         		switchuvm(p);
         		p->state = RUNNING;
 
         		swtch(&(c->scheduler), p->context);
         		switchkvm();
         		c->proc = 0;
-        	}
+        	    }
+            }
         }
-    }
 
 
 #else
 #ifdef FRR
 
-     /** FRR **/
+    /** FRR **/
     p = ptable.proc;
+    struct proc* arr = ptable.proc;
 
-    bubbleSort(p, NPROC);
 
-     for (; p < &ptable.proc[NPROC]; p++) {
-        	if(p->state != RUNNABLE)
-        		continue;
+//    bubbleSort(p, NPROC, cpy);
 
-        	for (int i = 0; i < QUANTA; i++){
-        		if(p->etime >0 || p->state != RUNNABLE)
-        			break;
-        		else {
-        		c->proc = p; 
-        		switchuvm(p);
-        		p->state = RUNNING;
+    // give them all ONE shot
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p->state != RUNNABLE)
+            continue;
 
-        		swtch(&(c->scheduler), p->context);
-        		switchkvm();
-        		c->proc = 0;
-        	}
-        }
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+        c->proc = 0;
     }
+
+    // sorting
+    int previousMinIdx = -1;
+    for(int k = 0; k < NPROC; k++) {
+
+        int candidateForMinIdx = 0;
+        for(int i = 0; i < NPROC; i++) {
+            if(arr[i].state != RUNNABLE)
+                continue;
+
+            if(arr[i].ctime < arr[candidateForMinIdx].ctime) {
+                if(previousMinIdx != -1) {
+                    if(arr[i].ctime > arr[previousMinIdx].ctime) {
+                        candidateForMinIdx = i;
+                    }
+                    else if(arr[i].ctime == arr[previousMinIdx].ctime) {
+                        if(i > previousMinIdx) {
+                            candidateForMinIdx = i;
+                        }
+                    }
+                }
+                else {
+                    candidateForMinIdx = i;
+                }
+            }
+        }
+
+        // service min process
+        p = &arr[candidateForMinIdx];
+
+        if(p->state != RUNNABLE)
+            continue;
+
+
+        for (int i = 0; i < QUANTA; i++){
+            if(p->etime >0 || p->state != RUNNABLE)
+                break;
+            else {
+                c->proc = p;
+                switchuvm(p);
+                p->state = RUNNING;
+
+                swtch(&(c->scheduler), p->context);
+                switchkvm();
+                c->proc = 0;
+            }
+        }
+
+
+        previousMinIdx = candidateForMinIdx;
+    }
+
+
+
 
 #else
 #ifdef GRT
@@ -543,6 +606,7 @@ scheduler(void) {
         }
         // Q1
         if(foundPriority0) {
+            // GRT
             // find best runnable process
             for(; p < &ptable.proc[NPROC]; p++) {
                 if (p->state != RUNNABLE || p->priority != 0)
@@ -568,7 +632,30 @@ scheduler(void) {
             }
           // Q2
           if(foundPriority1) {
-            // FIFO RR HERE
+            // FIFO RR
+              p = ptable.proc;
+
+              bubbleSort(p, NPROC);
+
+              for (; p < &ptable.proc[NPROC]; p++) {
+                  if(p->state != RUNNABLE || p->priority != 1)
+                      continue;
+
+                  for (int i = 0; i < QUANTA; i++){
+                      if(p->etime >0 || p->state != RUNNABLE)
+                          break;
+                      else {
+                          c->proc = p;
+                          switchuvm(p);
+                          p->state = RUNNING;
+
+                          swtch(&(c->scheduler), p->context);
+                          switchkvm();
+                          c->proc = 0;
+                      }
+                  }
+              }
+
           }
 
           else {
@@ -579,7 +666,25 @@ scheduler(void) {
               }
             //Q3
             if(foundPriority2) {
-              // RR HERE
+              // RR
+                for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+                    if(p->state != RUNNABLE || p->priority != 2)
+                        continue;
+
+                    for (int i = 0; i < QUANTA; i++){
+                        if(p->etime >0 || p->state != RUNNABLE)
+                            break;
+                        else {
+                            c->proc = p;
+                            switchuvm(p);
+                            p->state = RUNNING;
+
+                            swtch(&(c->scheduler), p->context);
+                            switchkvm();
+                            c->proc = 0;
+                        }
+                    }
+                }
             }
           }
 
@@ -876,45 +981,3 @@ void updateEveryTick() {
     release(&ptable.lock);
 }
 
-
-#ifdef SML
-/*
-  this method will find the next process to run
-*/
-struct proc* findReadyProcess(int *index1, int *index2, int *index3, uint *priority) {
-  int i;
-  struct proc* proc2;
-notfound:
-  for (i = 0; i < NPROC; i++) {
-    switch(*priority) {
-      case 1:
-        proc2 = &ptable.proc[(*index1 + i) % NPROC];
-        if (proc2->state == RUNNABLE && proc2->priority == *priority) {
-          *index1 = (*index1 + 1 + i) % NPROC;
-          return proc2; // found a runnable process with appropriate priority
-        }
-      case 2:
-        proc2 = &ptable.proc[(*index2 + i) % NPROC];
-        if (proc2->state == RUNNABLE && proc2->priority == *priority) {
-          *index2 = (*index2 + 1 + i) % NPROC;
-          return proc2; // found a runnable process with appropriate priority
-        }
-      case 3:
-        proc2 = &ptable.proc[(*index3 + i) % NPROC];
-        if (proc2->state == RUNNABLE && proc2->priority == *priority){
-          *index3 = (*index3 + 1 + i) % NPROC;
-          return proc2; // found a runnable process with appropriate priority
-        }
-    }
-  }
-  if (*priority == 3) {//did not find any process on any of the prorities
-    *priority = 3;
-    return 0;
-  }
-  else {
-    *priority += 1; //will try to find a process at a lower priority (ighter value of priority)
-    goto notfound;
-  }
-  return 0;
-}
-#endif
