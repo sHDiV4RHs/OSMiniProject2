@@ -490,8 +490,8 @@ scheduler(void) {
 
         int candidateForMinIdx = 0;
         for(int i = 0; i < NPROC; i++) {
-            if(arr[i].state != RUNNABLE)
-                continue;
+//            if(arr[i].state != RUNNABLE)
+//                continue;
 
             if(arr[i].ctime < arr[candidateForMinIdx].ctime) {
                 if(previousMinIdx != -1) {
