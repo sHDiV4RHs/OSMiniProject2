@@ -2,13 +2,14 @@
 #include "stat.h"
 #include "user.h"
 
-int main(void)
-{	
+int main(void) {	
 	int pid;
     for(int i = 0; i < 10; ++i) {
     	pid = fork();
-    	if(pid == 0)
+    	if(pid == 0) {
+    		printf(1, "child %d has been created.\n",i);
     		break;
+    	}
     }
 
     if(pid == 0) {
